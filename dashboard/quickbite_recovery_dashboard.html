@@ -1,0 +1,1193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>QuickBite Express — Crisis Recovery Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0D0F14;--surface:#151820;--card:#1C1F2B;--border:#252836;
+  --yellow:#F5C518;--red:#FF4B4B;--green:#2ECC71;--blue:#4A90E2;--orange:#FF8C00;
+  --text:#F0EDE6;--muted:#8892A4;--mono:'JetBrains Mono',monospace;
+  --font:'Space Grotesk',sans-serif;
+}
+html{background:var(--bg);color:var(--text);font-family:var(--font);font-size:14px}
+body{min-height:100vh;padding-bottom:60px}
+
+/* HEADER */
+.header{background:linear-gradient(135deg,#1a0a0a 0%,#0D0F14 60%);
+  border-bottom:1px solid var(--border);padding:28px 40px 24px;
+  display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:16px}
+.logo-area h1{font-size:1.6rem;font-weight:700;letter-spacing:-0.02em;line-height:1.1}
+.logo-area h1 span{color:var(--red)}
+.logo-area p{font-family:var(--mono);font-size:0.65rem;color:var(--muted);margin-top:5px;letter-spacing:0.08em;text-transform:uppercase}
+.phase-legend{display:flex;gap:12px;flex-wrap:wrap}
+.phase-chip{font-family:var(--mono);font-size:0.62rem;font-weight:600;padding:5px 11px;
+  border-radius:3px;text-transform:uppercase;letter-spacing:0.06em;border:1px solid}
+.chip-pre{background:#0a2010;color:var(--green);border-color:var(--green)}
+.chip-crisis{background:#2a0808;color:var(--red);border-color:var(--red)}
+.chip-rec{background:#1a1500;color:var(--yellow);border-color:var(--yellow)}
+
+/* NAV */
+.nav{display:flex;gap:0;padding:0 40px;background:var(--surface);border-bottom:1px solid var(--border);overflow-x:auto}
+.nav-btn{font-family:var(--mono);font-size:0.68rem;font-weight:600;text-transform:uppercase;
+  letter-spacing:0.06em;padding:14px 20px;background:none;border:none;color:var(--muted);
+  cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap;transition:all 0.15s}
+.nav-btn.active{color:var(--yellow);border-bottom-color:var(--yellow)}
+.nav-btn:hover:not(.active){color:var(--text)}
+
+/* MAIN */
+.main{padding:32px 40px;max-width:1400px;margin:0 auto}
+.tab-section{display:none}.tab-section.active{display:block}
+
+/* SECTION TITLE */
+.section-title{font-family:var(--mono);font-size:0.62rem;font-weight:700;
+  text-transform:uppercase;letter-spacing:0.12em;color:var(--muted);
+  margin-bottom:20px;display:flex;align-items:center;gap:10px}
+.section-title::after{content:'';flex:1;height:1px;background:var(--border)}
+
+/* KPI ROW */
+.kpi-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:28px}
+.kpi{background:var(--card);border:1px solid var(--border);padding:18px 20px;position:relative;overflow:hidden}
+.kpi::before{content:'';position:absolute;top:0;left:0;right:0;height:2px}
+.kpi.red::before{background:var(--red)}.kpi.green::before{background:var(--green)}
+.kpi.yellow::before{background:var(--yellow)}.kpi.blue::before{background:var(--blue)}
+.kpi.orange::before{background:var(--orange)}
+.kpi-label{font-family:var(--mono);font-size:0.58rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:8px}
+.kpi-value{font-weight:700;font-size:1.9rem;line-height:1;letter-spacing:-0.02em}
+.kpi-value.red{color:var(--red)}.kpi-value.green{color:var(--green)}
+.kpi-value.yellow{color:var(--yellow)}.kpi-value.blue{color:var(--blue)}
+.kpi-sub{font-family:var(--mono);font-size:0.6rem;color:var(--muted);margin-top:6px}
+.kpi-delta{font-family:var(--mono);font-size:0.65rem;font-weight:600;margin-top:4px}
+.kpi-delta.down{color:var(--red)}.kpi-delta.up{color:var(--green)}
+
+/* GRID */
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px}
+.grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:16px}
+.grid-12{display:grid;grid-template-columns:1.2fr 1fr;gap:16px;margin-bottom:16px}
+@media(max-width:900px){.grid-2,.grid-3,.grid-12{grid-template-columns:1fr}}
+
+/* CHART CARD */
+.chart-card{background:var(--card);border:1px solid var(--border);padding:20px;position:relative}
+.chart-title{font-family:var(--mono);font-size:0.65rem;font-weight:700;color:var(--muted);
+  text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px}
+.chart-sub{font-size:0.75rem;color:var(--text);font-weight:600;margin-bottom:16px}
+.chart-wrap{position:relative;height:220px}
+.chart-wrap.tall{height:280px}
+
+/* INSIGHT BOX */
+.insight{background:#0f1520;border-left:3px solid var(--yellow);padding:14px 16px;margin-top:12px}
+.insight-label{font-family:var(--mono);font-size:0.58rem;color:var(--yellow);
+  text-transform:uppercase;letter-spacing:0.1em;margin-bottom:6px}
+.insight-text{font-size:0.8rem;color:#ccc;line-height:1.6}
+
+/* TABLE */
+.data-table{width:100%;border-collapse:collapse;font-size:0.78rem;margin-top:8px}
+.data-table th{font-family:var(--mono);font-size:0.58rem;color:var(--muted);
+  text-transform:uppercase;letter-spacing:0.08em;padding:8px 12px;
+  border-bottom:1px solid var(--border);text-align:left;font-weight:600}
+.data-table td{padding:9px 12px;border-bottom:1px solid #1e2130;color:var(--text)}
+.data-table tr:last-child td{border-bottom:none}
+.data-table tr:hover td{background:#1e2130}
+.tag{font-family:var(--mono);font-size:0.55rem;font-weight:700;padding:2px 6px;border-radius:2px}
+.tag-r{background:#1a0505;color:var(--red);border:1px solid var(--red)}
+.tag-g{background:#051a0a;color:var(--green);border:1px solid var(--green)}
+.tag-y{background:#1a1400;color:var(--yellow);border:1px solid var(--yellow)}
+
+/* PHASE BANDS on charts — via annotation plugin we skip, use manual labels */
+/* RECOMMENDATIONS */
+.rec-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px;margin-top:8px}
+.rec-card{background:var(--card);border:1px solid var(--border);padding:20px;border-top:3px solid}
+.rec-card.urgent{border-top-color:var(--red)}.rec-card.high{border-top-color:var(--yellow)}
+.rec-card.medium{border-top-color:var(--blue)}.rec-card.long{border-top-color:var(--green)}
+.rec-priority{font-family:var(--mono);font-size:0.58rem;font-weight:700;
+  text-transform:uppercase;letter-spacing:0.1em;margin-bottom:8px}
+.rec-priority.urgent{color:var(--red)}.rec-priority.high{color:var(--yellow)}
+.rec-priority.medium{color:var(--blue)}.rec-priority.long{color:var(--green)}
+.rec-title{font-weight:700;font-size:0.95rem;margin-bottom:8px;line-height:1.3}
+.rec-body{font-size:0.78rem;color:#aaa;line-height:1.6}
+.rec-metric{font-family:var(--mono);font-size:0.68rem;color:var(--yellow);margin-top:10px;font-weight:600}
+
+/* SEGMENT BARS */
+.seg-row{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.seg-name{font-family:var(--mono);font-size:0.65rem;width:90px;flex-shrink:0;color:var(--text)}
+.seg-bar-wrap{flex:1;height:20px;background:#1a1d2a;position:relative}
+.seg-bar{height:100%;transition:width 0.8s ease}
+.seg-val{font-family:var(--mono);font-size:0.62rem;color:var(--muted);width:60px;text-align:right;flex-shrink:0}
+
+/* CRISIS TIMELINE */
+.timeline{display:flex;gap:0;margin-bottom:20px;overflow:hidden}
+.tl-phase{flex:1;padding:14px 16px;text-align:center;position:relative}
+.tl-phase.pre{background:#0a1a10;border:1px solid #1a3a20}
+.tl-phase.crisis{background:#1a0808;border:1px solid #3a1010}
+.tl-phase.rec{background:#1a1400;border:1px solid #3a3000}
+.tl-label{font-family:var(--mono);font-size:0.58rem;text-transform:uppercase;
+  letter-spacing:0.1em;margin-bottom:6px;font-weight:700}
+.tl-phase.pre .tl-label{color:var(--green)}.tl-phase.crisis .tl-label{color:var(--red)}
+.tl-phase.rec .tl-label{color:var(--yellow)}
+.tl-period{font-size:0.78rem;color:var(--text);font-weight:600;margin-bottom:4px}
+.tl-orders{font-family:var(--mono);font-size:0.68rem;color:var(--muted)}
+
+@media(max-width:600px){
+  .header{padding:20px 16px}.main{padding:20px 16px}.nav{padding:0 16px}
+  .kpi-value{font-size:1.5rem}
+}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="logo-area">
+    <h1>QuickBite<span>Express</span> — Crisis Recovery</h1>
+    <p>Data Analysis · Jan – Sep 2025 · 149,166 orders · 8 cities</p>
+  </div>
+  <div class="phase-legend">
+    <span class="phase-chip chip-pre">Jan–May: Pre-Crisis</span>
+    <span class="phase-chip chip-crisis">Jun: Crisis</span>
+    <span class="phase-chip chip-rec">Jul–Sep: Recovery</span>
+  </div>
+</div>
+
+<nav class="nav">
+  <button class="nav-btn active" onclick="showTab('overview')">Overview</button>
+  <button class="nav-btn" onclick="showTab('customers')">Customers</button>
+  <button class="nav-btn" onclick="showTab('delivery')">Delivery</button>
+  <button class="nav-btn" onclick="showTab('restaurants')">Restaurants</button>
+  <button class="nav-btn" onclick="showTab('sentiment')">Sentiment</button>
+  <button class="nav-btn" onclick="showTab('keywords')">Keywords</button>
+  <button class="nav-btn" onclick="showTab('vip')">VIP Segment</button>
+  <button class="nav-btn" onclick="showTab('roi')">ROI Model</button>
+  <button class="nav-btn" onclick="showTab('recommendations')">Recommendations</button>
+</nav>
+
+<div class="main">
+
+<!-- ═══════════════════════════════════════════════════════ OVERVIEW -->
+<div id="tab-overview" class="tab-section active">
+  <div class="section-title">Executive Summary — The Scale of the Crisis</div>
+
+  <div class="timeline">
+    <div class="tl-phase pre">
+      <div class="tl-label">Pre-Crisis</div>
+      <div class="tl-period">Jan – May 2025</div>
+      <div class="tl-orders">113,806 orders · ₹75.2L/mo avg</div>
+    </div>
+    <div class="tl-phase crisis">
+      <div class="tl-label">⚠ Crisis</div>
+      <div class="tl-period">June 2025</div>
+      <div class="tl-orders">9,293 orders · ₹28.9L revenue</div>
+    </div>
+    <div class="tl-phase rec">
+      <div class="tl-label">Recovery</div>
+      <div class="tl-period">Jul – Sep 2025</div>
+      <div class="tl-orders">26,067 orders · ₹26.8L/mo avg</div>
+    </div>
+  </div>
+
+  <div class="kpi-row">
+    <div class="kpi red">
+      <div class="kpi-label">Revenue Drop</div>
+      <div class="kpi-value red">−64%</div>
+      <div class="kpi-sub">₹75.2L → ₹26.8L / month</div>
+      <div class="kpi-delta down">▼ ₹48.4L monthly gap persists</div>
+    </div>
+    <div class="kpi red">
+      <div class="kpi-label">Orders Dropped</div>
+      <div class="kpi-value red">−63%</div>
+      <div class="kpi-sub">22,761 → 8,689 / month avg</div>
+      <div class="kpi-delta down">▼ Not recovering — flat Jul–Sep</div>
+    </div>
+    <div class="kpi red">
+      <div class="kpi-label">Customer Retention</div>
+      <div class="kpi-value red">12.2%</div>
+      <div class="kpi-sub">Only 10,603 of 86,824 returned</div>
+      <div class="kpi-delta down">▼ 76,221 customers lost</div>
+    </div>
+    <div class="kpi red">
+      <div class="kpi-label">Cancellation Rate</div>
+      <div class="kpi-value red">12.1%</div>
+      <div class="kpi-sub">vs 6.1% pre-crisis</div>
+      <div class="kpi-delta down">▼ 2× pre-crisis rate, not improving</div>
+    </div>
+    <div class="kpi red">
+      <div class="kpi-label">SLA Breach Rate</div>
+      <div class="kpi-value red">87.7%</div>
+      <div class="kpi-sub">vs 56.4% pre-crisis</div>
+      <div class="kpi-delta down">▼ Delivery infra still broken</div>
+    </div>
+    <div class="kpi yellow">
+      <div class="kpi-label">Avg Delivery Time</div>
+      <div class="kpi-value yellow">60 min</div>
+      <div class="kpi-sub">vs 39.5 min pre-crisis</div>
+      <div class="kpi-delta down">▼ +20.5 min — biggest UX failure</div>
+    </div>
+  </div>
+
+  <div class="grid-2">
+    <div class="chart-card">
+      <div class="chart-title">Orders & Revenue</div>
+      <div class="chart-sub">Monthly volume — crisis drop clearly visible</div>
+      <div class="chart-wrap tall"><canvas id="c-orders-rev"></canvas></div>
+      <div class="insight">
+        <div class="insight-label">Key Finding</div>
+        <div class="insight-text">Orders collapsed 60% in June and have not recovered — Jul–Sep plateau at ~8,600/month suggests structural loss, not temporary churn.</div>
+      </div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">Cancellation Rate & Avg Delivery Time</div>
+      <div class="chart-sub">Operational KPIs by month</div>
+      <div class="chart-wrap tall"><canvas id="c-ops"></canvas></div>
+      <div class="insight">
+        <div class="insight-label">Key Finding</div>
+        <div class="insight-text">Both cancellation rate (6%→12%) and delivery time (39→60 min) doubled in June and have <strong>not improved through September</strong> — the infrastructure upgrade is not yet showing results in data.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid-2">
+    <div class="chart-card">
+      <div class="chart-title">Avg Customer Rating</div>
+      <div class="chart-sub">Monthly sentiment — trust collapse in June</div>
+      <div class="chart-wrap"><canvas id="c-rating-overview"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">Active Unique Customers</div>
+      <div class="chart-sub">Monthly active users by month</div>
+      <div class="chart-wrap"><canvas id="c-customers-mo"></canvas></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════ CUSTOMERS -->
+<div id="tab-customers" class="tab-section">
+  <div class="section-title">Customer Segmentation & Retention</div>
+
+  <div class="kpi-row">
+    <div class="kpi red">
+      <div class="kpi-label">Lost Customers</div>
+      <div class="kpi-value red">76,221</div>
+      <div class="kpi-sub">87.8% of pre-crisis base</div>
+    </div>
+    <div class="kpi yellow">
+      <div class="kpi-label">Retained</div>
+      <div class="kpi-value yellow">10,603</div>
+      <div class="kpi-sub">12.2% came back in recovery</div>
+    </div>
+    <div class="kpi green">
+      <div class="kpi-label">New in Recovery</div>
+      <div class="kpi-value green">13,807</div>
+      <div class="kpi-sub">Never ordered pre-crisis</div>
+    </div>
+    <div class="kpi blue">
+      <div class="kpi-label">Top Acq. Channel</div>
+      <div class="kpi-value blue">Paid</div>
+      <div class="kpi-sub">40.7% of new recovery users</div>
+    </div>
+  </div>
+
+  <div class="grid-12">
+    <div class="chart-card">
+      <div class="chart-title">RFM Segment Size</div>
+      <div class="chart-sub">Pre-crisis customers — all segments lost equally (~12% returned)</div>
+      <div class="chart-wrap tall"><canvas id="c-rfm"></canvas></div>
+      <div class="insight">
+        <div class="insight-label">Critical Insight</div>
+        <div class="insight-text">All RFM segments show near-identical 12% return rate — Champions returned at the same rate as Lost customers. The crisis was catastrophic enough to erase loyalty advantage entirely. Recovery strategy cannot rely on "loyal customers will come back automatically."</div>
+      </div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">Segment Recovery %</div>
+      <div class="chart-sub">% who returned in recovery phase</div>
+      <div style="margin-top:16px">
+        <div class="seg-row"><span class="seg-name">Champions</span><div class="seg-bar-wrap"><div class="seg-bar" style="width:12%;background:#4A90E2"></div></div><span class="seg-val">11.9%</span></div>
+        <div class="seg-row"><span class="seg-name">Loyal</span><div class="seg-bar-wrap"><div class="seg-bar" style="width:12.6%;background:#2ECC71"></div></div><span class="seg-val">12.6%</span></div>
+        <div class="seg-row"><span class="seg-name">At Risk</span><div class="seg-bar-wrap"><div class="seg-bar" style="width:12.5%;background:#FF8C00"></div></div><span class="seg-val">12.5%</span></div>
+        <div class="seg-row"><span class="seg-name">Can't Lose</span><div class="seg-bar-wrap"><div class="seg-bar" style="width:12.3%;background:#F5C518"></div></div><span class="seg-val">12.3%</span></div>
+        <div class="seg-row"><span class="seg-name">Recent</span><div class="seg-bar-wrap"><div class="seg-bar" style="width:11.9%;background:#9B59B6"></div></div><span class="seg-val">11.9%</span></div>
+        <div class="seg-row"><span class="seg-name">Lost</span><div class="seg-bar-wrap"><div class="seg-bar" style="width:12.3%;background:#FF4B4B"></div></div><span class="seg-val">12.3%</span></div>
+      </div>
+      <div class="insight" style="margin-top:24px">
+        <div class="insight-label">Strategy Implication</div>
+        <div class="insight-text">Since all segments recovered equally (~12%), the 76K lost customers are a homogeneous re-acquisition target. Focus budget on Champions (24,783 customers, highest LTV) and At Risk (15,864) with personalised win-back campaigns.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="chart-card" style="margin-bottom:16px">
+    <div class="chart-title">New Recovery Customers by Acquisition Channel</div>
+    <div class="chart-sub">13,807 new customers in Jul–Sep — paid ads dominating acquisition</div>
+    <div style="display:flex;gap:32px;align-items:center;flex-wrap:wrap;padding:16px 0">
+      <div style="flex:1;min-width:240px"><canvas id="c-acq" style="height:200px"></canvas></div>
+      <div style="flex:1;min-width:220px">
+        <table class="data-table">
+          <tr><th>Channel</th><th>New Users</th><th>Share</th></tr>
+          <tr><td>Paid</td><td>5,614</td><td><span class="tag tag-r">40.7%</span></td></tr>
+          <tr><td>Organic</td><td>3,818</td><td><span class="tag tag-y">27.7%</span></td></tr>
+          <tr><td>Social</td><td>1,657</td><td>12.0%</td></tr>
+          <tr><td>Referral</td><td>1,361</td><td>9.9%</td></tr>
+        </table>
+        <div class="insight" style="margin-top:12px">
+          <div class="insight-label">Action</div>
+          <div class="insight-text">High paid acquisition spend (41%) with uncertain retention. Shift budget toward Referral (lowest CAC, highest trust signal) with a "refer a friend, both get ₹100" post-crisis campaign.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════ DELIVERY -->
+<div id="tab-delivery" class="tab-section">
+  <div class="section-title">Delivery Performance — The Unresolved Operational Crisis</div>
+
+  <div class="kpi-row">
+    <div class="kpi red">
+      <div class="kpi-label">Recovery SLA Breach</div>
+      <div class="kpi-value red">87.7%</div>
+      <div class="kpi-sub">Pre-crisis: 56.4%</div>
+      <div class="kpi-delta down">▼ +31.3 percentage points</div>
+    </div>
+    <div class="kpi red">
+      <div class="kpi-label">Avg Delivery Time</div>
+      <div class="kpi-value red">60 min</div>
+      <div class="kpi-sub">Pre-crisis: 39.5 min</div>
+      <div class="kpi-delta down">▼ +20.5 min degradation</div>
+    </div>
+    <div class="kpi red">
+      <div class="kpi-label">Avg Delay (when late)</div>
+      <div class="kpi-value red">20.6 min</div>
+      <div class="kpi-sub">Pre-crisis: 8.4 min</div>
+      <div class="kpi-delta down">▼ 2.5× worse when SLA missed</div>
+    </div>
+    <div class="kpi yellow">
+      <div class="kpi-label">Expected Delivery</div>
+      <div class="kpi-value yellow">42.5 min</div>
+      <div class="kpi-sub">vs 37.5 min pre-crisis</div>
+      <div class="kpi-delta down">▼ SLAs were loosened, still breached</div>
+    </div>
+  </div>
+
+  <div class="grid-2">
+    <div class="chart-card">
+      <div class="chart-title">SLA Breach Rate by Month</div>
+      <div class="chart-sub">% of orders delivered after promised time</div>
+      <div class="chart-wrap"><canvas id="c-sla"></canvas></div>
+      <div class="insight">
+        <div class="insight-label">Critical Finding</div>
+        <div class="insight-text">SLA breach jumped from 56% to 88% in June and <strong>remained at 88% through September</strong>. The delivery infrastructure overhaul management announced has not translated into data improvement yet.</div>
+      </div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">Avg Actual vs Expected Delivery Time</div>
+      <div class="chart-sub">Minutes — gap widens and stays wide</div>
+      <div class="chart-wrap"><canvas id="c-delivery-time"></canvas></div>
+      <div class="insight">
+        <div class="insight-label">Action</div>
+        <div class="insight-text">Expected delivery time was raised from 37.5→42.5 min post-crisis (SLA loosened to manage expectations) but actual time is 60 min. Gap is 17.5 min. Fix: route optimization and peak-hour surge capacity.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="chart-card">
+    <div class="chart-title">Cancellation Rate by Month</div>
+    <div class="chart-sub">Monthly cancellations as % of total orders</div>
+    <div class="chart-wrap"><canvas id="c-cancel"></canvas></div>
+    <div class="insight">
+      <div class="insight-label">Connection</div>
+      <div class="insight-text">Cancellation rate doubled (6%→12%) and is worsening month-on-month in recovery (Jul:11.9% → Aug:12.5%). Likely driven by long wait times — customers cancelling after placing order. Reducing delivery time is the single highest-impact fix for cancellations.</div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════ RESTAURANTS -->
+<div id="tab-restaurants" class="tab-section">
+  <div class="section-title">Restaurant Partnerships — 27% Churn, Cuisine Gaps Emerging</div>
+
+  <div class="kpi-row">
+    <div class="kpi red">
+      <div class="kpi-label">Restaurants Churned</div>
+      <div class="kpi-value red">5,395</div>
+      <div class="kpi-sub">27.1% of pre-crisis partners</div>
+    </div>
+    <div class="kpi yellow">
+      <div class="kpi-label">Active in Recovery</div>
+      <div class="kpi-value yellow">14,581</div>
+      <div class="kpi-sub">vs 19,919 pre-crisis</div>
+    </div>
+    <div class="kpi red">
+      <div class="kpi-label">Still Flagged Active</div>
+      <div class="kpi-value red">4,867</div>
+      <div class="kpi-sub">Churned but marked active in DB</div>
+      <div class="kpi-delta down">▼ Data quality issue</div>
+    </div>
+    <div class="kpi orange">
+      <div class="kpi-label">Biggest Churn</div>
+      <div class="kpi-value orange">N.Indian</div>
+      <div class="kpi-sub">1,060 restaurants lost</div>
+    </div>
+  </div>
+
+  <div class="grid-2">
+    <div class="chart-card">
+      <div class="chart-title">Churned Restaurants by Cuisine</div>
+      <div class="chart-sub">Number of restaurants lost per cuisine type</div>
+      <div class="chart-wrap"><canvas id="c-cuisine-churn"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">Restaurant Activity Across Phases</div>
+      <div class="chart-sub">Unique restaurants taking orders per phase</div>
+      <div class="chart-wrap"><canvas id="c-rest-phase"></canvas></div>
+      <div class="insight">
+        <div class="insight-label">Partnership Risk</div>
+        <div class="insight-text">4,867 restaurants are marked "active" in the database but placed zero orders in recovery — a critical data integrity issue that inflates active partner counts for management reporting.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="chart-card" style="margin-bottom:16px">
+    <div class="chart-title">Churned Restaurant — Data Quality Alert</div>
+    <div class="chart-sub">4,867 churned restaurants are still flagged as is_active = "Y" in dim_restaurant</div>
+    <table class="data-table">
+      <tr><th>Status</th><th>Count</th><th>Implication</th></tr>
+      <tr><td>Churned (zero orders in recovery) + is_active = Y</td><td><strong>4,867</strong></td><td><span class="tag tag-r">Data mismatch — misleads ops team</span></td></tr>
+      <tr><td>Churned + is_active = N</td><td>528</td><td><span class="tag tag-g">Correctly flagged</span></td></tr>
+      <tr><td>Active in recovery</td><td>14,581</td><td><span class="tag tag-g">Normal</span></td></tr>
+    </table>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════ SENTIMENT -->
+<div id="tab-sentiment" class="tab-section">
+  <div class="section-title">Ratings & Sentiment — Trust Collapse, Not Yet Recovering</div>
+
+  <div class="kpi-row">
+    <div class="kpi green">
+      <div class="kpi-label">Pre-Crisis Avg Rating</div>
+      <div class="kpi-value green">4.50</div>
+      <div class="kpi-sub">Sentiment: +0.75</div>
+    </div>
+    <div class="kpi red">
+      <div class="kpi-label">Crisis Avg Rating</div>
+      <div class="kpi-value red">2.63</div>
+      <div class="kpi-sub">Sentiment: −0.19</div>
+      <div class="kpi-delta down">▼ −1.87 points in one month</div>
+    </div>
+    <div class="kpi red">
+      <div class="kpi-label">Recovery Avg Rating</div>
+      <div class="kpi-value red">2.47</div>
+      <div class="kpi-sub">Sentiment: −0.27</div>
+      <div class="kpi-delta down">▼ Getting worse, not better</div>
+    </div>
+    <div class="kpi red">
+      <div class="kpi-label">Sep Rating</div>
+      <div class="kpi-value red">2.31</div>
+      <div class="kpi-sub">Lowest month on record</div>
+      <div class="kpi-delta down">▼ Declining trend in recovery</div>
+    </div>
+  </div>
+
+  <div class="grid-2">
+    <div class="chart-card">
+      <div class="chart-title">Avg Rating by Month</div>
+      <div class="chart-sub">Customer satisfaction score — declining through recovery</div>
+      <div class="chart-wrap"><canvas id="c-rating"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">Sentiment Score by Month</div>
+      <div class="chart-sub">−1 = very negative · 0 = neutral · +1 = very positive</div>
+      <div class="chart-wrap"><canvas id="c-sentiment"></canvas></div>
+    </div>
+  </div>
+
+  <div class="chart-card">
+    <div class="chart-title">Rating Distribution — Before vs During vs After Crisis</div>
+    <div class="chart-sub">Pre-crisis: overwhelmingly 4–5★. Recovery: concentrated in 1–2★.</div>
+    <div class="chart-wrap tall"><canvas id="c-rating-dist"></canvas></div>
+    <div class="insight">
+      <div class="insight-label">Most Alarming Signal</div>
+      <div class="insight-text">Recovery sentiment is <strong>worse than during the crisis itself</strong> (−0.27 vs −0.19). Customers who stayed through the crisis and remained into recovery are the most dissatisfied. These are long-term brand advocates who have given up — the hardest segment to recover. Immediate priority: personal outreach and service recovery credits for this cohort.</div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════ RECOMMENDATIONS -->
+<!-- ═══════════════════════════════════════════════════════ KEYWORDS -->
+<div id="tab-keywords" class="tab-section">
+  <div class="section-title">Keyword Sentiment — What Customers Are Actually Saying</div>
+
+  <div class="kpi-row">
+    <div class="kpi red">
+      <div class="kpi-label">Top Complaint</div>
+      <div class="kpi-value red" style="font-size:1.4rem">Quality</div>
+      <div class="kpi-sub">2,226 mentions in negative reviews</div>
+    </div>
+    <div class="kpi red">
+      <div class="kpi-label">#2 Complaint</div>
+      <div class="kpi-value red" style="font-size:1.4rem">Issue</div>
+      <div class="kpi-sub">2,073 mentions — general dissatisfaction</div>
+    </div>
+    <div class="kpi red">
+      <div class="kpi-label">#3 Complaint</div>
+      <div class="kpi-value red" style="font-size:1.4rem">Packaging</div>
+      <div class="kpi-sub">1,627 mentions — spills, damage</div>
+    </div>
+    <div class="kpi red">
+      <div class="kpi-label">Safety Mentions</div>
+      <div class="kpi-value red">1,076</div>
+      <div class="kpi-sub">Direct food safety concern — high brand risk</div>
+    </div>
+  </div>
+
+  <div class="grid-2">
+    <div class="chart-card">
+      <div class="chart-title">Top Negative Keywords — Crisis + Recovery (rating &lt; 3)</div>
+      <div class="chart-sub">Frequency in negative reviews — what went wrong</div>
+      <div class="chart-wrap tall"><canvas id="c-neg-kw"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">Top Positive Keywords — Pre-Crisis (rating ≥ 4)</div>
+      <div class="chart-sub">What customers loved before the crisis</div>
+      <div class="chart-wrap tall"><canvas id="c-pos-kw"></canvas></div>
+    </div>
+  </div>
+
+  <div class="chart-card" style="margin-top:16px">
+    <div class="chart-title">Crisis vs Recovery — Keyword Volume Comparison</div>
+    <div class="chart-sub">Same complaints, 3× more volume in recovery — unresolved issues compounding</div>
+    <div class="chart-wrap"><canvas id="c-kw-compare"></canvas></div>
+    <div class="insight">
+      <div class="insight-label">Critical Pattern</div>
+      <div class="insight-text">Every single complaint category grew from Crisis to Recovery — "quality" went from 597→1,629 (2.7×), "safety" from 257→819 (3.2×). This is not noise; it's confirmation that the underlying product and food safety issues were never fixed. Recovery marketing cannot outrun product failures this severe.</div>
+    </div>
+  </div>
+
+  <div class="chart-card" style="margin-top:16px">
+    <div class="chart-title">Pre-Crisis Positive Words vs Recovery Pain Points</div>
+    <div class="chart-sub">The gap between what was and what is</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;padding:12px 0">
+      <div>
+        <div style="font-family:var(--mono);font-size:0.62rem;color:var(--green);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:12px">Pre-Crisis — What Customers Praised</div>
+        <table class="data-table">
+          <tr><th>Word</th><th>Mentions</th></tr>
+          <tr><td>fresh</td><td><span class="tag tag-g">6,247</span></td></tr>
+          <tr><td>delicious</td><td><span class="tag tag-g">6,247</span></td></tr>
+          <tr><td>excellent</td><td><span class="tag tag-g">6,185</span></td></tr>
+          <tr><td>fast</td><td><span class="tag tag-g">6,054</span></td></tr>
+          <tr><td>tasty</td><td><span class="tag tag-g">3,798</span></td></tr>
+        </table>
+      </div>
+      <div>
+        <div style="font-family:var(--mono);font-size:0.62rem;color:var(--red);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:12px">Recovery — What Customers Complain About</div>
+        <table class="data-table">
+          <tr><th>Word</th><th>Mentions</th></tr>
+          <tr><td>quality</td><td><span class="tag tag-r">1,629</span></td></tr>
+          <tr><td>stale</td><td><span class="tag tag-r">731</span></td></tr>
+          <tr><td>cold</td><td><span class="tag tag-r">503</span></td></tr>
+          <tr><td>late</td><td><span class="tag tag-r">687</span></td></tr>
+          <tr><td>packaging</td><td><span class="tag tag-r">1,217</span></td></tr>
+        </table>
+      </div>
+    </div>
+    <div class="insight">
+      <div class="insight-label">Action Items from Keywords</div>
+      <div class="insight-text">"Stale" + "cold" + "late" = food arriving cold after long delivery times. Root fix is delivery speed (already identified). "Packaging" = separate issue — tamper-evident seals and insulated bags needed immediately. "Safety" at 1,076 mentions is a brand liability — publish FSSAI audit results in-app for every restaurant.</div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════ VIP -->
+<div id="tab-vip" class="tab-section">
+  <div class="section-title">VIP Segment — Top 5% Spenders, Highest Revenue Risk</div>
+
+  <div class="kpi-row">
+    <div class="kpi yellow">
+      <div class="kpi-label">VIP Customers (top 5%)</div>
+      <div class="kpi-value yellow">4,342</div>
+      <div class="kpi-sub">Spend ≥ ₹923 pre-crisis</div>
+    </div>
+    <div class="kpi yellow">
+      <div class="kpi-label">VIP Avg Spend</div>
+      <div class="kpi-value yellow">₹1,128</div>
+      <div class="kpi-sub">vs ₹330 overall avg — 3.4× higher</div>
+    </div>
+    <div class="kpi yellow">
+      <div class="kpi-label">VIP Avg Orders</div>
+      <div class="kpi-value yellow">2.7</div>
+      <div class="kpi-sub">vs 1.3 overall — more frequent</div>
+    </div>
+    <div class="kpi red">
+      <div class="kpi-label">VIP Returned</div>
+      <div class="kpi-value red">519</div>
+      <div class="kpi-sub">Only 12% of 4,342 VIPs came back</div>
+      <div class="kpi-delta down">▼ 3,823 VIPs still lost</div>
+    </div>
+    <div class="kpi red">
+      <div class="kpi-label">Monthly Revenue at Risk</div>
+      <div class="kpi-value red">₹8.6L</div>
+      <div class="kpi-sub">Lost VIP spend per month</div>
+      <div class="kpi-delta down">▼ Single highest-ROI recovery target</div>
+    </div>
+    <div class="kpi blue">
+      <div class="kpi-label">VIP Avg Order Value</div>
+      <div class="kpi-value blue">₹435</div>
+      <div class="kpi-sub">vs ₹330 platform average</div>
+    </div>
+  </div>
+
+  <div class="grid-2">
+    <div class="chart-card">
+      <div class="chart-title">VIP vs Total Platform — Monthly Orders</div>
+      <div class="chart-sub">VIP customers drove ~10% of orders, disproportionate revenue</div>
+      <div class="chart-wrap tall"><canvas id="c-vip-orders"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">VIP Monthly Revenue Contribution</div>
+      <div class="chart-sub">₹1M+/month pre-crisis → ₹60K in recovery — 94% collapse</div>
+      <div class="chart-wrap tall"><canvas id="c-vip-rev"></canvas></div>
+      <div class="insight">
+        <div class="insight-label">The VIP Problem</div>
+        <div class="insight-text">VIP revenue collapsed 94% (₹9.9L → ₹60K/month). They returned at the same rate as everyone else (12%) despite being the most loyal pre-crisis. This confirms the crisis was severe enough to erase even the strongest loyalty signal — they need active outreach, not passive win-back.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="chart-card" style="margin-top:16px">
+    <div class="chart-title">VIP Segment Recovery Opportunity</div>
+    <div class="chart-sub">What recovering VIPs is worth at different reactivation rates</div>
+    <div class="chart-wrap"><canvas id="c-vip-scenario"></canvas></div>
+    <div class="insight">
+      <div class="insight-label">Strategy</div>
+      <div class="insight-text">3,823 VIPs are lost. Each is worth ₹226/month. A dedicated VIP win-back campaign — personal call/email, ₹200 credit, priority delivery SLA guarantee — targeting even 25% reactivation recovers ₹2.16L/month (≈₹26L/year) from 956 customers. This is the single highest-ROI customer recovery action available.</div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════ ROI -->
+<div id="tab-roi" class="tab-section">
+  <div class="section-title">Recovery ROI Model — Investment vs Revenue Recovered</div>
+
+  <div class="kpi-row">
+    <div class="kpi red">
+      <div class="kpi-label">Monthly Revenue Gap</div>
+      <div class="kpi-value red">₹48.4L</div>
+      <div class="kpi-sub">₹75.2L pre-crisis → ₹26.8L now</div>
+    </div>
+    <div class="kpi yellow">
+      <div class="kpi-label">Total Recovery Budget</div>
+      <div class="kpi-value yellow">₹70–80L</div>
+      <div class="kpi-sub">Across 4 pillars over 6–9 months</div>
+    </div>
+    <div class="kpi green">
+      <div class="kpi-label">Projected 12-Month ROI</div>
+      <div class="kpi-value green">3–4×</div>
+      <div class="kpi-sub">On targeted reactivation spend</div>
+    </div>
+    <div class="kpi blue">
+      <div class="kpi-label">Reactivation vs New CAC</div>
+      <div class="kpi-value blue">3×</div>
+      <div class="kpi-sub">Cheaper to win back than acquire new</div>
+    </div>
+  </div>
+
+  <div class="grid-2">
+    <div class="chart-card">
+      <div class="chart-title">4-Pillar Recovery Investment</div>
+      <div class="chart-sub">Budget allocation across recovery initiatives</div>
+      <div class="chart-wrap"><canvas id="c-roi-invest"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">Monthly Revenue Recovery Projection</div>
+      <div class="chart-sub">Expected recovery trajectory with full investment</div>
+      <div class="chart-wrap"><canvas id="c-roi-proj"></canvas></div>
+    </div>
+  </div>
+
+  <div class="chart-card" style="margin-top:16px">
+    <div class="chart-title">Customer Reactivation — Scenario Modelling</div>
+    <div class="chart-sub">Revenue recovered at different win-back rates across segments</div>
+    <div class="chart-wrap"><canvas id="c-roi-scenario"></canvas></div>
+  </div>
+
+  <div style="margin-top:20px">
+    <div class="section-title">Pillar-by-Pillar ROI Breakdown</div>
+    <table class="data-table">
+      <tr><th>Pillar</th><th>Investment</th><th>Target</th><th>Expected Output</th><th>Timeline</th><th>ROI</th></tr>
+      <tr>
+        <td><strong>VIP Win-Back</strong></td>
+        <td>₹8–10L</td>
+        <td>3,823 lost VIPs</td>
+        <td>956 return (25%) · ₹2.16L/month</td>
+        <td>Month 1–2</td>
+        <td><span class="tag tag-g">~3× in 6mo</span></td>
+      </tr>
+      <tr>
+        <td><strong>Champion Reactivation</strong></td>
+        <td>₹15–20L</td>
+        <td>24,783 Champions</td>
+        <td>6,195 return (25%) · ₹7.3L/month</td>
+        <td>Month 1–3</td>
+        <td><span class="tag tag-g">~4× in 9mo</span></td>
+      </tr>
+      <tr>
+        <td><strong>Delivery Infrastructure</strong></td>
+        <td>₹25–30L</td>
+        <td>SLA: 88%→65% breach</td>
+        <td>Cancel rate 12%→8% · Rating 2.3→3.5★</td>
+        <td>Month 2–6</td>
+        <td><span class="tag tag-y">Enabler — unlocks all other ROI</span></td>
+      </tr>
+      <tr>
+        <td><strong>Restaurant Re-onboarding</strong></td>
+        <td>₹10–15L</td>
+        <td>5,395 churned partners</td>
+        <td>Recover 2,000+ (N.Indian/Biryani first)</td>
+        <td>Month 2–5</td>
+        <td><span class="tag tag-y">Supply-side quality improvement</span></td>
+      </tr>
+      <tr>
+        <td><strong>Food Safety Certification</strong></td>
+        <td>₹8–12L</td>
+        <td>All active partners FSSAI-audited</td>
+        <td>35–40% trust improvement · Safety complaints ↓</td>
+        <td>Month 1–3</td>
+        <td><span class="tag tag-g">Brand moat · Prevents next crisis</span></td>
+      </tr>
+      <tr style="background:#1a1d2a;font-weight:700">
+        <td><strong>TOTAL</strong></td>
+        <td>₹66–87L</td>
+        <td>—</td>
+        <td>₹45L+/month revenue by Month 9</td>
+        <td>6–9 months</td>
+        <td><span class="tag tag-g">2.5–3× cumulative</span></td>
+      </tr>
+    </table>
+    <div class="insight" style="margin-top:12px">
+      <div class="insight-label">Key Dependency</div>
+      <div class="insight-text">Delivery infrastructure (Pillar 3) is not directly revenue-generating but is the prerequisite for every other pillar. Running a VIP win-back campaign before fixing 60-min delivery will produce churn again within 30 days. The sequence matters: Fix ops → Fix food safety → Then reactivate customers.</div>
+    </div>
+  </div>
+</div>
+
+<div id="tab-recommendations" class="tab-section">
+  <div class="section-title">Recovery Recommendations — Prioritised by Impact</div>
+
+  <div class="rec-grid">
+    <div class="rec-card urgent">
+      <div class="rec-priority urgent">🔴 Urgent — Fix Now</div>
+      <div class="rec-title">Delivery Infrastructure: Route Optimisation</div>
+      <div class="rec-body">Avg delivery time is 60 min (SLA: 42.5 min). 87.7% of orders breach SLA. This is the #1 driver of cancellations (12%) and poor ratings (2.47★). Implement real-time route optimisation, peak-hour driver surge pricing, and 20-min delivery zones for high-density areas.</div>
+      <div class="rec-metric">Target: ≤45 min avg · SLA breach ≤65% · Cancel rate ≤8%</div>
+    </div>
+    <div class="rec-card urgent">
+      <div class="rec-priority urgent">🔴 Urgent — Fix Now</div>
+      <div class="rec-title">Fix is_active Data Quality in dim_restaurant</div>
+      <div class="rec-body">4,867 churned restaurants are still marked is_active = "Y". This inflates active partner counts used for investor reporting and ops planning. Run a weekly batch job: mark is_active = "N" for any restaurant with zero orders in trailing 30 days.</div>
+      <div class="rec-metric">Impact: Accurate KPI reporting · Prevents false ops confidence</div>
+    </div>
+    <div class="rec-card high">
+      <div class="rec-priority high">🟡 High Priority</div>
+      <div class="rec-title">Champion Win-Back Campaign</div>
+      <div class="rec-body">24,783 Champion-segment customers (highest LTV, avg ₹590 spend) returned at only 11.9%. Since all segments returned equally, loyalty alone won't bring them back — they need active outreach. Personalised email + ₹150 credit + food safety certification proof. Target: 25% return rate.</div>
+      <div class="rec-metric">If 25% return: +6,195 high-value customers · ~₹3.7L incremental revenue</div>
+    </div>
+    <div class="rec-card high">
+      <div class="rec-priority high">🟡 High Priority</div>
+      <div class="rec-title">Restaurant Re-onboarding: North Indian & Biryani First</div>
+      <div class="rec-body">North Indian (1,060 churned) and Biryani (759 churned) are the highest-volume cuisine segments lost. These cuisines drive the most repeat orders nationally. Offer 0% commission for 60 days + safety certification support. Prioritise verified cloud kitchens.</div>
+      <div class="rec-metric">Target: Recover 40% of churned North Indian restaurants in Q4</div>
+    </div>
+    <div class="rec-card medium">
+      <div class="rec-priority medium">🔵 Medium Priority</div>
+      <div class="rec-title">Shift Acquisition: Paid → Referral</div>
+      <div class="rec-body">40.7% of recovery users came via Paid ads — highest CAC channel with uncertain retention. Referral users have inherently higher trust (social proof post-crisis). Launch "Bring Back a Friend" — ₹100 credit for both referrer and referee, max 3 referrals per user.</div>
+      <div class="rec-metric">Referral CAC typically 3–5× lower than Paid · Higher 90-day retention</div>
+    </div>
+    <div class="rec-card medium">
+      <div class="rec-priority medium">🔵 Medium Priority</div>
+      <div class="rec-title">Address Declining Recovery Sentiment</div>
+      <div class="rec-body">Rating fell from 2.63 (crisis) to 2.31 (Sep recovery) — getting worse. Customers who stayed are most frustrated. Immediate: proactive SMS/push after every delayed order with compensation credit. Mid-term: real-time customer satisfaction monitoring dashboard for ops team.</div>
+      <div class="rec-metric">Target: Recovery avg rating ≥3.5★ by Dec 2025</div>
+    </div>
+    <div class="rec-card long">
+      <div class="rec-priority long">🟢 Long-Term</div>
+      <div class="rec-title">Build Crisis-Resilient Operations</div>
+      <div class="rec-body">The June monsoon outage + food safety incident created a cascading failure that wiped 88% of the customer base. Build: (1) geographically distributed delivery partner pools to avoid single-region outages, (2) food safety audit scores published in-app, (3) automated SLA monitoring with real-time alerts.</div>
+      <div class="rec-metric">Moat: Trust infrastructure as competitive differentiator vs Swiggy/Zomato</div>
+    </div>
+    <div class="rec-card long">
+      <div class="rec-priority long">🟢 Long-Term</div>
+      <div class="rec-title">Recovery North Star Metric</div>
+      <div class="rec-body">Current recovery is volume-flat (Jul–Sep ~8,600 orders/month). Define a single North Star: Monthly Active Customers ≥30,000 by Mar 2026. Track weekly. Gate all initiatives against this metric. Decompose into: (1) win-back rate, (2) new user retention, (3) order frequency.</div>
+      <div class="rec-metric">Current: 8,479 MAU (Sep). Target: 30,000 MAU by Mar 2026</div>
+    </div>
+  </div>
+
+  <div style="margin-top:24px">
+    <div class="section-title">Summary Metrics to Track Weekly</div>
+    <table class="data-table">
+      <tr><th>Metric</th><th>Current (Sep 2025)</th><th>Target (Dec 2025)</th><th>Owner</th></tr>
+      <tr><td>Avg Delivery Time</td><td><span class="tag tag-r">60.1 min</span></td><td>≤45 min</td><td>Ops</td></tr>
+      <tr><td>SLA Breach Rate</td><td><span class="tag tag-r">87.9%</span></td><td>≤65%</td><td>Ops</td></tr>
+      <tr><td>Cancellation Rate</td><td><span class="tag tag-r">11.8%</span></td><td>≤8%</td><td>Ops</td></tr>
+      <tr><td>Avg Rating</td><td><span class="tag tag-r">2.31★</span></td><td>≥3.5★</td><td>Product</td></tr>
+      <tr><td>Monthly Active Customers</td><td><span class="tag tag-r">8,479</span></td><td>≥20,000</td><td>Growth</td></tr>
+      <tr><td>Monthly Revenue</td><td><span class="tag tag-r">₹26.8L</span></td><td>≥₹45L</td><td>Business</td></tr>
+      <tr><td>Active Restaurant Partners</td><td><span class="tag tag-y">14,581</span></td><td>≥18,000</td><td>Partnerships</td></tr>
+    </table>
+  </div>
+</div>
+
+</div><!-- /main -->
+
+<script>
+const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep'];
+const PRE_COLOR  = 'rgba(46,204,113,0.7)';
+const CRI_COLOR  = 'rgba(255,75,75,0.9)';
+const REC_COLOR  = 'rgba(245,197,24,0.8)';
+const BLUE       = 'rgba(74,144,226,0.85)';
+const BORDER_OPT = {grid:{color:'#1e2130'},ticks:{color:'#8892A4',font:{size:11}}};
+
+const defOpts = (extra={}) => ({
+  responsive:true, maintainAspectRatio:false,
+  plugins:{legend:{labels:{color:'#8892A4',font:{size:11}}}, tooltip:{...extra}},
+  scales:{x:{...BORDER_OPT}, y:{...BORDER_OPT}}
+});
+
+function phaseColors(n) {
+  return MONTHS.slice(0,n).map((_,i)=> i<5?PRE_COLOR: i===5?CRI_COLOR:REC_COLOR);
+}
+
+// Orders + Revenue (dual axis)
+new Chart(document.getElementById('c-orders-rev'), {
+  type:'bar',
+  data:{
+    labels:MONTHS,
+    datasets:[
+      {label:'Orders', data:[23539,22667,23543,21466,22591,9293,8818,8555,8694],
+        backgroundColor:phaseColors(9), yAxisID:'y'},
+      {label:'Revenue (₹)', data:[7774293,7469953,7802569,7126972,7447176,2887867,2724623,2642856,2684805],
+        type:'line', borderColor:'rgba(245,197,24,0.9)', backgroundColor:'transparent',
+        pointBackgroundColor:'#F5C518', tension:0.3, yAxisID:'y1'}
+    ]
+  },
+  options:{...defOpts(), scales:{
+    x:BORDER_OPT,
+    y:{...BORDER_OPT, title:{display:true,text:'Orders',color:'#8892A4',font:{size:11}}},
+    y1:{...BORDER_OPT, position:'right', grid:{display:false},
+        title:{display:true,text:'Revenue ₹',color:'#8892A4',font:{size:11}}}
+  }}
+});
+
+// Ops: cancel rate + delivery time
+new Chart(document.getElementById('c-ops'), {
+  type:'line',
+  data:{
+    labels:MONTHS,
+    datasets:[
+      {label:'Cancel Rate %', data:[6.22,6.15,5.99,5.85,6.06,11.56,11.91,12.51,11.78],
+        borderColor:'#FF4B4B', backgroundColor:'rgba(255,75,75,0.1)',
+        pointBackgroundColor:'#FF4B4B', tension:0.3, yAxisID:'y', fill:true},
+      {label:'Avg Delivery (min)', data:[39.6,39.5,39.4,39.6,39.6,60.3,59.9,60.1,60.1],
+        borderColor:'#F5C518', backgroundColor:'transparent',
+        pointBackgroundColor:'#F5C518', tension:0.3, yAxisID:'y1'}
+    ]
+  },
+  options:{...defOpts(), scales:{
+    x:BORDER_OPT,
+    y:{...BORDER_OPT, title:{display:true,text:'Cancel %',color:'#8892A4',font:{size:11}}},
+    y1:{...BORDER_OPT, position:'right', grid:{display:false},
+        title:{display:true,text:'Delivery min',color:'#8892A4',font:{size:11}}}
+  }}
+});
+
+// Rating overview
+new Chart(document.getElementById('c-rating-overview'), {
+  type:'line',
+  data:{
+    labels:MONTHS,
+    datasets:[{
+      label:'Avg Rating', data:[4.58,4.40,4.74,4.30,4.49,2.63,2.69,2.40,2.31],
+      borderColor:'#4A90E2', backgroundColor:'rgba(74,144,226,0.1)',
+      pointBackgroundColor: MONTHS.map((_,i)=>i<5?'#2ECC71':i===5?'#FF4B4B':'#F5C518'),
+      pointRadius:5, tension:0.3, fill:true
+    }]
+  },
+  options:{...defOpts(), scales:{x:BORDER_OPT, y:{...BORDER_OPT, min:1, max:5}}}
+});
+
+// Monthly customers
+new Chart(document.getElementById('c-customers-mo'), {
+  type:'bar',
+  data:{
+    labels:MONTHS,
+    datasets:[{
+      label:'Unique Customers',
+      data:[22220,21356,22185,20373,21350,9096,8632,8377,8479],
+      backgroundColor:phaseColors(9)
+    }]
+  },
+  options:defOpts()
+});
+
+// RFM bar
+new Chart(document.getElementById('c-rfm'), {
+  type:'bar',
+  data:{
+    labels:['Champions','At Risk','Lost','Loyal','Recent',"Can't Lose",'Others'],
+    datasets:[
+      {label:'Total', data:[24783,15864,13283,9585,9402,8301,5606],
+        backgroundColor:'rgba(74,144,226,0.4)'},
+      {label:'Returned', data:[2958,1976,1631,1203,1123,1018,694],
+        backgroundColor:'rgba(245,197,24,0.8)'}
+    ]
+  },
+  options:defOpts()
+});
+
+// Acquisition donut
+new Chart(document.getElementById('c-acq'), {
+  type:'doughnut',
+  data:{
+    labels:['Paid','Organic','Social','Referral'],
+    datasets:[{
+      data:[5614,3818,1657,1361],
+      backgroundColor:['#FF4B4B','#2ECC71','#4A90E2','#F5C518'],
+      borderWidth:0
+    }]
+  },
+  options:{responsive:true,maintainAspectRatio:false,
+    plugins:{legend:{position:'right',labels:{color:'#8892A4',font:{size:11}}}}}
+});
+
+// SLA breach
+new Chart(document.getElementById('c-sla'), {
+  type:'bar',
+  data:{
+    labels:MONTHS,
+    datasets:[{
+      label:'SLA Breach %',
+      data:[56.8,56.0,55.7,56.6,56.9,88.2,87.4,87.7,87.9],
+      backgroundColor:phaseColors(9)
+    }]
+  },
+  options:{...defOpts(), scales:{x:BORDER_OPT, y:{...BORDER_OPT, min:0, max:100}}}
+});
+
+// Delivery time
+new Chart(document.getElementById('c-delivery-time'), {
+  type:'line',
+  data:{
+    labels:MONTHS,
+    datasets:[
+      {label:'Actual (min)', data:[39.6,39.5,39.4,39.6,39.6,60.3,59.9,60.1,60.1],
+        borderColor:'#FF4B4B', pointBackgroundColor:'#FF4B4B', tension:0.3},
+      {label:'Expected SLA (min)', data:[37.5,37.5,37.5,37.5,37.5,42.5,42.5,42.5,42.5],
+        borderColor:'#2ECC71', borderDash:[5,4], pointRadius:3, tension:0}
+    ]
+  },
+  options:defOpts()
+});
+
+// Cancellation
+new Chart(document.getElementById('c-cancel'), {
+  type:'line',
+  data:{
+    labels:MONTHS,
+    datasets:[{
+      label:'Cancellation Rate %',
+      data:[6.22,6.15,5.99,5.85,6.06,11.56,11.91,12.51,11.78],
+      borderColor:'#FF4B4B', backgroundColor:'rgba(255,75,75,0.12)',
+      pointBackgroundColor:phaseColors(9), pointRadius:5, tension:0.3, fill:true
+    }]
+  },
+  options:{...defOpts(), scales:{x:BORDER_OPT, y:{...BORDER_OPT, min:0, max:16}}}
+});
+
+// Cuisine churn bar
+new Chart(document.getElementById('c-cuisine-churn'), {
+  type:'bar',
+  data:{
+    labels:['N.Indian','S.Indian','Chinese','Biryani','Pizza','Fast Food','Desserts','Healthy'],
+    datasets:[{
+      label:'Restaurants Lost',
+      data:[1060,812,797,759,686,557,463,261],
+      backgroundColor:'rgba(255,75,75,0.75)'
+    }]
+  },
+  options:{...defOpts(), indexAxis:'y'}
+});
+
+// Restaurant phase
+new Chart(document.getElementById('c-rest-phase'), {
+  type:'bar',
+  data:{
+    labels:['Pre-Crisis','Crisis','Recovery'],
+    datasets:[{
+      label:'Unique Restaurants Active',
+      data:[19919,7458,14581],
+      backgroundColor:[PRE_COLOR, CRI_COLOR, REC_COLOR]
+    }]
+  },
+  options:defOpts()
+});
+
+// Rating by month
+new Chart(document.getElementById('c-rating'), {
+  type:'line',
+  data:{
+    labels:MONTHS,
+    datasets:[{
+      label:'Avg Rating (1–5)',
+      data:[4.58,4.40,4.74,4.30,4.49,2.63,2.69,2.40,2.31],
+      borderColor:'#4A90E2', backgroundColor:'rgba(74,144,226,0.1)',
+      pointBackgroundColor:MONTHS.map((_,i)=>i<5?'#2ECC71':i===5?'#FF4B4B':'#F5C518'),
+      pointRadius:5, tension:0.3, fill:true
+    }]
+  },
+  options:{...defOpts(), scales:{x:BORDER_OPT, y:{...BORDER_OPT, min:1, max:5}}}
+});
+
+// Sentiment
+new Chart(document.getElementById('c-sentiment'), {
+  type:'line',
+  data:{
+    labels:MONTHS,
+    datasets:[{
+      label:'Avg Sentiment Score',
+      data:[0.788,0.700,0.869,0.649,0.744,-0.187,-0.155,-0.299,-0.347],
+      borderColor:'#F5C518', backgroundColor:'rgba(245,197,24,0.1)',
+      pointBackgroundColor:MONTHS.map((_,i)=>i<5?'#2ECC71':i===5?'#FF4B4B':'#F5C518'),
+      pointRadius:5, tension:0.3, fill:true
+    }]
+  },
+  options:{...defOpts(), scales:{x:BORDER_OPT, y:{...BORDER_OPT, min:-0.5, max:1.1}}}
+});
+
+// Rating distribution grouped bar
+new Chart(document.getElementById('c-rating-dist'), {
+  type:'bar',
+  data:{
+    labels:['1★','2★','3★','4★','5★'],
+    datasets:[
+      {label:'Pre-Crisis', data:[0,0,0,24136,29108], backgroundColor:'rgba(46,204,113,0.7)'},
+      {label:'Crisis',     data:[178,412,891,1534,1150], backgroundColor:'rgba(255,75,75,0.8)'},
+      {label:'Recovery',   data:[777,1772,3201,3768,1898], backgroundColor:'rgba(245,197,24,0.7)'}
+    ]
+  },
+  options:defOpts()
+});
+
+// ── KEYWORDS ──────────────────────────────────────────────────────────────
+const negKw  = ['quality','issue','packaging','safety','stale','late','cold','portion/size','worth/price','experience'];
+const negVal = [2226, 2073, 1627, 1076, 971, 904, 668, 658, 655, 645];
+const posKw  = ['fresh','delicious','excellent','service','loved','super fast','great','tasty'];
+const posVal = [6247, 6247, 6185, 6185, 6106, 6054, 5955, 3798];
+
+new Chart(document.getElementById('c-neg-kw'), {
+  type:'bar', data:{labels:negKw, datasets:[{label:'Mentions',data:negVal,backgroundColor:'rgba(255,75,75,0.75)'}]},
+  options:{...defOpts(), indexAxis:'y', scales:{x:BORDER_OPT, y:BORDER_OPT}}
+});
+new Chart(document.getElementById('c-pos-kw'), {
+  type:'bar', data:{labels:posKw, datasets:[{label:'Mentions',data:posVal,backgroundColor:'rgba(46,204,113,0.7)'}]},
+  options:{...defOpts(), indexAxis:'y', scales:{x:BORDER_OPT, y:BORDER_OPT}}
+});
+
+const kwCategories = ['quality','issue','packaging','safety','stale','late'];
+new Chart(document.getElementById('c-kw-compare'), {
+  type:'bar',
+  data:{labels:kwCategories, datasets:[
+    {label:'Crisis',  data:[597,479,410,257,240,217], backgroundColor:'rgba(255,75,75,0.6)'},
+    {label:'Recovery',data:[1629,1594,1217,819,731,687], backgroundColor:'rgba(255,140,0,0.75)'}
+  ]},
+  options:defOpts()
+});
+
+// ── VIP ───────────────────────────────────────────────────────────────────
+new Chart(document.getElementById('c-vip-orders'), {
+  type:'bar',
+  data:{labels:MONTHS, datasets:[
+    {label:'All Orders', data:[23539,22667,23543,21466,22591,9293,8818,8555,8694],
+      backgroundColor:'rgba(74,144,226,0.35)', yAxisID:'y'},
+    {label:'VIP Orders', data:[2479,2328,2500,2228,2287,206,188,182,186],
+      backgroundColor:'rgba(245,197,24,0.85)', yAxisID:'y'}
+  ]},
+  options:{...defOpts(), scales:{x:BORDER_OPT, y:{...BORDER_OPT}}}
+});
+
+new Chart(document.getElementById('c-vip-rev'), {
+  type:'line',
+  data:{labels:MONTHS, datasets:[
+    {label:'VIP Revenue ₹', data:[1033285,957706,1049610,921563,935292,66421,58263,51865,60875],
+      borderColor:'#F5C518', backgroundColor:'rgba(245,197,24,0.12)',
+      pointBackgroundColor:phaseColors(9), pointRadius:5, tension:0.3, fill:true}
+  ]},
+  options:defOpts()
+});
+
+const vipScenario = [10,15,20,25,30,40,50];
+const vipRevenue  = vipScenario.map(pct => Math.round(3823 * pct/100 * 226 / 1000));
+new Chart(document.getElementById('c-vip-scenario'), {
+  type:'bar',
+  data:{labels:vipScenario.map(p=>p+'% return'), datasets:[
+    {label:'Monthly Revenue Recovered (₹ thousands)', data:vipRevenue,
+      backgroundColor:vipScenario.map(p=> p<=15?'rgba(255,75,75,0.7)':p<=25?'rgba(245,197,24,0.8)':'rgba(46,204,113,0.7)')}
+  ]},
+  options:{...defOpts(), scales:{x:BORDER_OPT, y:{...BORDER_OPT, title:{display:true,text:'₹ thousands/month',color:'#8892A4',font:{size:11}}}}}
+});
+
+// ── ROI ───────────────────────────────────────────────────────────────────
+new Chart(document.getElementById('c-roi-invest'), {
+  type:'doughnut',
+  data:{
+    labels:['VIP Win-Back','Champion Reactivation','Delivery Infra','Restaurant Re-onboard','Food Safety Cert'],
+    datasets:[{
+      data:[9,17.5,27.5,12.5,10],
+      backgroundColor:['#F5C518','#4A90E2','#FF4B4B','#FF8C00','#2ECC71'],
+      borderWidth:0
+    }]
+  },
+  options:{responsive:true,maintainAspectRatio:false,
+    plugins:{legend:{position:'right',labels:{color:'#8892A4',font:{size:11},boxWidth:14}}}}
+});
+
+// Projection: current flat ~26.8L, ramps up with investment
+new Chart(document.getElementById('c-roi-proj'), {
+  type:'line',
+  data:{labels:['Sep (now)','Oct','Nov','Dec','Jan','Feb','Mar'],
+    datasets:[
+      {label:'Current trajectory (no action)', data:[26.8,26.5,26.2,26.0,25.8,25.5,25.2],
+        borderColor:'#FF4B4B', borderDash:[5,4], pointRadius:3, tension:0},
+      {label:'With recovery investment', data:[26.8,29.5,33.2,37.8,41.5,44.2,47.0],
+        borderColor:'#2ECC71', backgroundColor:'rgba(46,204,113,0.08)',
+        pointBackgroundColor:'#2ECC71', pointRadius:5, tension:0.4, fill:true}
+    ]
+  },
+  options:{...defOpts(), scales:{x:BORDER_OPT, y:{...BORDER_OPT, title:{display:true,text:'₹ Lakhs/month',color:'#8892A4',font:{size:11}}}}}
+});
+
+// Scenario: reactivation at different rates
+const segments = ['Champions\n(24,783)','At Risk\n(15,864)',"Can't Lose\n(8,301)",'VIP\n(3,823)'];
+new Chart(document.getElementById('c-roi-scenario'), {
+  type:'bar',
+  data:{
+    labels:['Champions (24,783)','At Risk (15,864)',"Can't Lose (8,301)",'VIP (3,823)'],
+    datasets:[
+      {label:'15% return — conservative', data:[Math.round(24783*0.15*118/1e5), Math.round(15864*0.15*89/1e5), Math.round(8301*0.15*82/1e5), Math.round(3823*0.15*226/1e5)], backgroundColor:'rgba(255,75,75,0.65)'},
+      {label:'25% return — base case',    data:[Math.round(24783*0.25*118/1e5), Math.round(15864*0.25*89/1e5), Math.round(8301*0.25*82/1e5), Math.round(3823*0.25*226/1e5)], backgroundColor:'rgba(245,197,24,0.8)'},
+      {label:'40% return — optimistic',   data:[Math.round(24783*0.40*118/1e5), Math.round(15864*0.40*89/1e5), Math.round(8301*0.40*82/1e5), Math.round(3823*0.40*226/1e5)], backgroundColor:'rgba(46,204,113,0.75)'}
+    ]
+  },
+  options:{...defOpts(), scales:{x:BORDER_OPT, y:{...BORDER_OPT, title:{display:true,text:'₹ Lakhs/month',color:'#8892A4',font:{size:11}}}}}
+});
+
+function showTab(name) {
+  document.querySelectorAll('.tab-section').forEach(s=>s.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('tab-'+name).classList.add('active');
+  event.target.classList.add('active');
+}
+</script>
+</body>
+</html>
