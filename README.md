@@ -87,7 +87,16 @@ Top complaints in negative reviews (rating < 3): Quality (2,226), Issue (2,073),
 
 ---
 
-## Analysis Modules
+## Analysis Notebook
+
+Start with **[`notebooks/quickbite_osemn_analysis.ipynb`](notebooks/quickbite_osemn_analysis.ipynb)** — the full OSEMN walkthrough:
+- **O**btain: load + inspect all 8 tables
+- **S**crub: phase labels, RFM features, timestamp parsing
+- **E**xplore: phase KPIs, cohort retention, delivery EDA, sentiment, VIP segment
+- **M**odel: 4 hypothesis tests + churn classifier (LR + RF) + ARIMA counterfactual
+- **N**terpret: 6 findings with stats + business translation + ROI model
+
+## Standalone Analysis Scripts
 
 ```
 analysis/
@@ -185,6 +194,8 @@ open dashboard/quickbite_recovery_dashboard.html
 ```
 quickbite-crisis-recovery-analysis/
 ├── README.md
+├── notebooks/
+│   └── quickbite_osemn_analysis.ipynb  # ← Full OSEMN walkthrough (start here)
 ├── dashboard/
 │   └── quickbite_recovery_dashboard.html   # Interactive 8-tab dashboard
 ├── analysis/
